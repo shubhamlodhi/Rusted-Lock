@@ -1,0 +1,103 @@
+# Rust specific
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+
+# IDE - IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - RustRover
+.rustover/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Database
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Diesel
+diesel.toml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Operating System
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+## Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Temporary files
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+
+# Debug
+debug/
+debug.log
+
+# Documentation
+/doc/
+/docs/generated/
+
+# Dependencies
+/node_modules/
+/jspm_packages/
+/bower_components/
+
+# Distribution
+/dist/
+/build/
+
+# Test coverage
+/coverage/
+.nyc_output/
+
+# Miscellaneous
+*.pid
+*.seed
+*.pid.lock
+.env.*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 

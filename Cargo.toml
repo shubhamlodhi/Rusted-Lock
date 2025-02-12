@@ -1,0 +1,24 @@
+[package]
+name = "rust_backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+# Axum for routing and HTTP handling.
+axum = { version = "0.8.1", features = ["json"] }
+
+# Tokio: asynchronous runtime.
+tokio = { version = "1.36.0", features = ["full"] }
+
+# Serde for JSON (de)serialization.
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+
+# Diesel ORM with PostgreSQL and r2d2 for connection pooling.
+diesel = { version = "2.1.4", features = ["postgres", "r2d2"] }
+dotenvy = "0.15.7"
+
+
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace"] }
