@@ -52,21 +52,23 @@ pub struct NewUser {
 }
 
 #[derive(Queryable, Insertable, Debug)]
-#[table_name = "sessions"]
+#[diesel(table_name = sessions)]
 pub struct Session {
     pub id: i32,
     pub user_id: Uuid,
     pub token: String,
+    pub refresh_token: String,
     pub expires_at: NaiveDateTime,
     pub created_at: Option<NaiveDateTime>,
 }
 
 
 
-// #[derive(Insertable,Deserialize)]
-// #[diesel(table_name = sessions)]
-// pub struct NewSession {
-//     pub user_id: Uuid,
-//     pub token: String,
-//     pub expires_at: NaiveDateTime
-// }
+#[derive(Insertable,Deserialize)]
+#[diesel(table_name = sessions)]
+pub struct NewSession {
+    pub user_id: Uuid,
+    pub token: String,
+    pub refresh_token: String,
+    pub expires_at: NaiveDateTime
+}

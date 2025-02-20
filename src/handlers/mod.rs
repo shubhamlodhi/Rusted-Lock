@@ -1,3 +1,4 @@
-pub mod user_handlers;
-pub mod result_handler;
-pub mod login_handlers;
+pub mod login;
+pub mod register;
+pub mod logout;
+mod refresh;

@@ -1,10 +1,11 @@
-// @generated automatically by Diesel CLI.
+﻿// @generated automatically by Diesel CLI.
 
 diesel::table! {
     sessions (id) {
         id -> Int4,
         user_id -> Uuid,
         token -> Text,
+        refresh_token -> Text,
         expires_at -> Timestamp,
         created_at -> Nullable<Timestamp>,
     }
