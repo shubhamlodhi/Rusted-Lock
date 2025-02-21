@@ -18,7 +18,7 @@ use crate::models::Session;
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
     pub(crate) sub: String,
-    exp: usize,
+    pub(crate) exp: usize,
     pub refresh: bool,
 }
 

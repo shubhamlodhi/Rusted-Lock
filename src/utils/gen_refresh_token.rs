@@ -20,7 +20,7 @@ pub async fn refresh_tokens(refresh_token_str: &str, conn: &mut PgConnection) ->
         .first::<Session>(conn)
         .map_err(|_| "Refresh token not found in database")?;
 
-    if Utc::now().naive_utc() > session.expires_at {
+    if token_data.claims.exp < Utc::now().timestamp() as usize {
         return Err("Refresh token has expired".to_string());
     }
 
