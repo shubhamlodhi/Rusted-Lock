@@ -1,14 +1,12 @@
 // src/routes.rs
 
 use axum::{
-    extract::State,
     routing::{get, post},
     Router,
     body::Body,
     middleware::from_fn_with_state,
 };
 use axum::http::StatusCode;
-use axum::middleware::from_fn;
 use axum::response::IntoResponse;
 use crate::handlers;
 use crate::middleware::token_validator::auth_middleware;
@@ -49,23 +47,19 @@ pub async fn root() -> impl IntoResponse {
     (StatusCode::OK, welcome_message)
 }
 
-
-
 pub async fn protected_root() -> impl IntoResponse {
     let protected_message = r#"I am Protected Here"#;
     (StatusCode::OK, protected_message)
 }
 
-
-
 pub async fn create_routes(pool: PgPool) -> Router {
-
     let public_routes = Router::new()
         .route("/", get(root));
 
     let login_routes = Router::new()
         .route("/login", post(handlers::login::login))
-        .route("/register", post(handlers::register::register));
+        .route("/register", post(handlers::register::register))
+        .route("/forgot", post(handlers::forgot::forgot_password));
 
     let protected_routes = Router::new()
         .route("/logout", post(handlers::logout::logout))

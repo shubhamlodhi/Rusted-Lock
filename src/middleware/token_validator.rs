@@ -42,7 +42,7 @@ pub async fn auth_middleware<T>(
             };
 
             // 2. Verify session exists with this access token and refresh token pair
-            let session = match sessions
+            let _session = match sessions
                 .filter(token.eq(access_token))
                 .filter(refresh_token.eq(&refresh_token_str))
                 .first::<Session>(&mut conn) {
