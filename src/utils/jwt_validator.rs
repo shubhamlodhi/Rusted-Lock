@@ -29,33 +29,33 @@ fn is_token_expired(exp: usize) -> bool {
 pub async fn validate_jwt(token_y: &str) -> Result<TokenData<Claims>, String> {
     // First validate JWT signature and expiration
     let validation = Validation::default();
-    let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-    let token_data = match decode::<Claims>(
+    let jwt_secret = env::var("JWT_SECRET").map_err(|_| "JWT_SECRET not set")?;
+    
+    let token_data = decode::<Claims>(
         token_y,
         &DecodingKey::from_secret(jwt_secret.as_ref()),
         &validation
-    ) {
-        Ok(token_data) => token_data,
-        Err(err) => match *err.kind() {
-            ErrorKind::ExpiredSignature => return Err("Token has expired".to_string()),
-            ErrorKind::InvalidSignature => return Err("Invalid token signature".to_string()),
-            _ => return Err("Invalid token format".to_string()),
-        },
-    };
+    ).map_err(|err| match *err.kind() {
+        ErrorKind::ExpiredSignature => "Token has expired",
+        ErrorKind::InvalidSignature => "Invalid token signature",
+        _ => "Invalid token format",
+    })?;
+
+    if is_token_expired(token_data.claims.exp) {
+        return Err("Token has expired".to_string());
+    }
 
     // Then check if token exists in database
-    let mut conn = match PgConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set")) {
-        Ok(conn) => conn,
-        Err(_) => return Err("Database error".to_string()),
-    };
+    let database_url = env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set")?;
+    let mut conn = PgConnection::establish(&database_url)
+        .map_err(|_| "Failed to connect to database")?;
 
-    match sessions
+    sessions
         .filter(token.eq(token_y))
         .first::<Session>(&mut conn)
-    {
-        Ok(_) => Ok(token_data),
-        Err(_) => Err("Token not found in database".to_string()),
-    }
+        .map_err(|_| "Token not found in database")?;
+
+    Ok(token_data)
 }
 
 pub async fn invalidate_token(

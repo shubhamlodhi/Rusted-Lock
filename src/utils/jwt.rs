@@ -14,23 +14,22 @@ pub struct Claims {
     pub refresh: bool,
 }
 
-pub fn generate_jwt(user_name: String, secret: &str, refresh: bool) -> String {
+pub fn generate_jwt(user_name: String, secret: &str, refresh: bool) -> Result<String, Box<dyn std::error::Error>> {
+    let duration = if refresh {
+        env::var("REFRESH_TOKEN_EXP_DURATION")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse::<i64>()
+            .unwrap_or(60)
+    } else {
+        env::var("ACCESS_TOKEN_EXP_DURATION")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse::<i64>()
+            .unwrap_or(15)
+    };
 
     let expiration = Utc::now()
-        .checked_add_signed(chrono::Duration::minutes(
-            if refresh {
-                env::var("REFRESH_TOKEN_EXP_DURATION")
-                    .unwrap()
-                    .parse::<i64>()
-                    .unwrap()
-            } else {
-                env::var("ACCESS_TOKEN_EXP_DURATION")
-                    .unwrap()
-                    .parse::<i64>()
-                    .unwrap()
-            }
-        ))
-        .expect("valid timestamp")
+        .checked_add_signed(chrono::Duration::minutes(duration))
+        .ok_or("Invalid timestamp calculation")?
         .timestamp();
 
     let claims = Claims {
@@ -39,8 +38,11 @@ pub fn generate_jwt(user_name: String, secret: &str, refresh: bool) -> String {
         refresh,
     };
 
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_ref()))
-        .expect("JWT token generation failed").to_string()
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref())
+    ).map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
 }
 
 
