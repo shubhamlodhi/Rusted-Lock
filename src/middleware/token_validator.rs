@@ -35,6 +35,7 @@ pub async fn auth_middleware<T>(
                 Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
             };
 
+
             // 1. Get refresh token from cookie
             let refresh_token_str = match cookie.and_then(|c| c.get("refresh_token").map(|s| s.to_string())) {
                 Some(rt) => rt,

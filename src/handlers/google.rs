@@ -1,4 +1,5 @@
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::http::{Response, StatusCode};
 use axum::{response::IntoResponse, Json, extract::State};
 use oauth2::{basic::BasicClient, AuthUrl, TokenUrl, ClientId, ClientSecret, RedirectUrl, Scope, TokenResponse};
 use oauth2::reqwest::async_http_client;
@@ -49,7 +50,7 @@ pub async fn google_auth_url() -> impl IntoResponse {
 pub async fn google_callback(
     State(pool): State<PgPool>,
     Json(payload): Json<GoogleAuthCode>
-) -> impl IntoResponse {
+) -> Response<Body>{
     let client = create_oauth_client();
     
     // Exchange authorization code for token
@@ -58,7 +59,7 @@ pub async fn google_callback(
         .request_async(async_http_client)
         .await {
             Ok(token) => token,
-            Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"error": format!("Failed to exchange auth code: {}", e)})))
+            Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"error": format!("Failed to exchange auth code: {}", e)}))).into_response()
         };
 
     // Get user info from Google
@@ -70,20 +71,20 @@ pub async fn google_callback(
         .await {
             Ok(response) => match response.json::<serde_json::Value>().await {
                 Ok(info) => info,
-                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to parse user info: {}", e)})))
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to parse user info: {}", e)}))).into_response()
             },
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to fetch user info: {}", e)})))
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to fetch user info: {}", e)}))).into_response()
         };
 
     let email_str = match user_info["email"].as_str() {
         Some(email_str) if !email_str.is_empty() => email_str,
-        _ => return (StatusCode::BAD_REQUEST, Json(json!({"error": "No email provided by Google"})))
+        _ => return (StatusCode::BAD_REQUEST, Json(json!({"error": "No email provided by Google"}))).into_response()
     };
     let name_str = user_info["name"].as_str().unwrap_or("");
 
     let mut conn = match pool.get() {
         Ok(conn) => conn,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Database connection error: {}", e)})))
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Database connection error: {}", e)}))).into_response()
     };
 
     // Check if user exists or create new one
@@ -110,10 +111,10 @@ pub async fn google_callback(
                     .values(&new_user)
                     .get_result(&mut conn) {
                         Ok(user) => user,
-                        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create user: {}", e)})))
+                        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create user: {}", e)}))).into_response()
                 }
             },
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Database error: {}", e)})))
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Database error: {}", e)}))).into_response()
         };
 
     // Generate JWT tokens
@@ -122,11 +123,11 @@ pub async fn google_callback(
     
     let access_token = match jwt::generate_jwt(user.username.clone(), &jwt_secret, false) {
         Ok(token) => token,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to generate access token: {}", e)})))
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to generate access token: {}", e)}))).into_response()
     };
     let refresh_token = match jwt::generate_jwt(user.username.clone(), &jwt_secret_x, true) {
         Ok(token) => token,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to generate refresh token: {}", e)})))
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to generate refresh token: {}", e)}))).into_response()
     };
 
     // Create new session
@@ -145,14 +146,14 @@ pub async fn google_callback(
     if let Err(e) = diesel::insert_into(crate::schema::sessions::dsl::sessions)
         .values(&new_session)
         .execute(&mut conn) {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to save session: {}", e)})));
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to save session: {}", e)}))).into_response();
     }
 
     // Return tokens in response
     let mut headers = axum::http::HeaderMap::new();
     match axum::http::HeaderValue::from_str(&format!("Bearer {}", access_token)) {
         Ok(auth_header) => { headers.insert(axum::http::header::AUTHORIZATION, auth_header); },
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create auth header: {}", e)})))
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create auth header: {}", e)}))).into_response()
     }
 
     match axum::http::HeaderValue::from_str(&format!(
@@ -164,8 +165,16 @@ pub async fn google_callback(
             .unwrap_or(240) * 60
     )) {
         Ok(cookie_header) => { headers.insert(axum::http::header::SET_COOKIE, cookie_header); },
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create cookie header: {}", e)})))
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("Failed to create cookie header: {}", e)}))).into_response()
     }
 
-    (StatusCode::OK, Json(json!({"message": "Login successful", "token": access_token})))
+    (StatusCode::OK, headers, Json(json!({
+        "message": "Login successful",
+        "token": access_token,
+        "user": {
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name
+        }
+    }))).into_response()
 }
