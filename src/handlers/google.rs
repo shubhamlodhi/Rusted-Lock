@@ -1,6 +1,6 @@
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
-use axum::{response::IntoResponse, Json, extract::State};
+use axum::{response::IntoResponse, Json, extract::{State, Query}};  // Add Query import
 use oauth2::{basic::BasicClient, AuthUrl, TokenUrl, ClientId, ClientSecret, RedirectUrl, Scope, TokenResponse};
 use oauth2::reqwest::async_http_client;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,13 @@ pub struct GoogleAuthCode {
     code: String
 }
 
-fn create_oauth_client() -> BasicClient {
+#[derive(Deserialize)]
+pub struct GoogleCallbackParams {
+    code: String,
+    state: Option<String>,
+}
+
+fn create_oauth_client() -> BasicClient {  // Add this function
     let google_client_id = env::var("GOOGLE_CLIENT_ID").expect("Missing GOOGLE_CLIENT_ID");
     let google_client_secret = env::var("GOOGLE_CLIENT_SECRET").expect("Missing GOOGLE_CLIENT_SECRET");
     let redirect_url = env::var("GOOGLE_REDIRECT_URL").expect("Missing GOOGLE_REDIRECT_URL");
@@ -33,7 +39,7 @@ fn create_oauth_client() -> BasicClient {
     .set_redirect_uri(RedirectUrl::new(redirect_url).unwrap())
 }
 
-pub async fn google_auth_url() -> impl IntoResponse {
+pub async fn google_auth_url() -> impl IntoResponse {  // Add this function
     let client = create_oauth_client();
     
     let (auth_url, _csrf_token) = client
@@ -47,15 +53,29 @@ pub async fn google_auth_url() -> impl IntoResponse {
     })
 }
 
-pub async fn google_callback(
+// Handler for query parameters (GET request)
+pub async fn google_callback_params(
+    State(pool): State<PgPool>,
+    Query(params): Query<GoogleCallbackParams>
+) -> Response<Body> {
+    handle_google_auth(pool, params.code).await
+}
+
+// Handler for JSON body (POST request)
+pub async fn google_callback_json(
     State(pool): State<PgPool>,
     Json(payload): Json<GoogleAuthCode>
-) -> Response<Body>{
+) -> Response<Body> {
+    handle_google_auth(pool, payload.code).await
+}
+
+// Common handler function
+async fn handle_google_auth(pool: PgPool, code: String) -> Response<Body> {
     let client = create_oauth_client();
     
-    // Exchange authorization code for token
+    // Move existing callback logic here
     let token = match client
-        .exchange_code(oauth2::AuthorizationCode::new(payload.code))
+        .exchange_code(oauth2::AuthorizationCode::new(code))
         .request_async(async_http_client)
         .await {
             Ok(token) => token,
@@ -81,6 +101,15 @@ pub async fn google_callback(
         _ => return (StatusCode::BAD_REQUEST, Json(json!({"error": "No email provided by Google"}))).into_response()
     };
     let name_str = user_info["name"].as_str().unwrap_or("");
+    
+    // Create a valid username from email
+    let username_str = email_str
+        .split('@')
+        .next()
+        .unwrap_or("user")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+        .collect::<String>();
 
     let mut conn = match pool.get() {
         Ok(conn) => conn,
@@ -100,7 +129,7 @@ pub async fn google_callback(
             Ok(None) => {
                 let new_user = NewUser {
                     email: email_str.to_owned(),
-                    username: email_str.to_owned(),
+                    username: username_str,  // Use the formatted username
                     password_hash: "".to_string(),
                     full_name: Some(name_str.to_string()),
                     role: "user".to_string(),

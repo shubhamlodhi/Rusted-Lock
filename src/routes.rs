@@ -62,9 +62,11 @@ pub async fn create_routes(pool: PgPool) -> Router {
         .route("/register", post(handlers::register::register))
         .route("/forgot", post(handlers::forgot::forgot_password))
         .route("/auth/google", get(google::google_auth_url))
-        .route("/auth/google/callback", post(google::google_callback))
-        .route("/auth/github", get(github::github_auth_url))         // Add GitHub auth URL route
-        .route("/auth/github/callback", post(github::github_callback)); // Add GitHub callback route
+        .route("/auth/google/callback", get(google::google_callback_params))  // For URL query parameters
+        .route("/auth/google/callback", post(google::google_callback_json))   // For JSON body
+        .route("/auth/github", get(github::github_auth_url))
+        .route("/auth/github/callback", get(github::github_callback_params))
+        .route("/auth/github/callback", post(github::github_callback_json));  // For JSON body
 
     let protected_routes = Router::new()
         .route("/logout", post(handlers::logout::logout))

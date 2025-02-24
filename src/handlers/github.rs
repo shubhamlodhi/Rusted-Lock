@@ -46,19 +46,41 @@ pub async fn github_auth_url() -> impl IntoResponse {
     })
 }
 
-pub async fn github_callback(
+use axum::extract::Query;
+
+#[derive(Deserialize)]
+pub struct GithubCallbackParams {
+    code: String,
+    state: Option<String>,
+}
+
+// Handler for query parameters (GET request)
+pub async fn github_callback_params(
+    State(pool): State<PgPool>,
+    Query(params): Query<GithubCallbackParams>
+) -> Response<Body> {
+    handle_github_auth(pool, params.code).await
+}
+
+// Handler for JSON body (POST request)
+pub async fn github_callback_json(
     State(pool): State<PgPool>,
     Json(payload): Json<GithubAuthCode>
 ) -> Response<Body> {
+    handle_github_auth(pool, payload.code).await
+}
+
+// Common handler function
+async fn handle_github_auth(pool: PgPool, code: String) -> Response<Body> {
     let client = create_oauth_client();
     
-    // Exchange authorization code for token
+    // Move the existing callback logic here
     let token = match client
-        .exchange_code(oauth2::AuthorizationCode::new(payload.code))
-        .add_extra_param("accept", "application/json")  // Add this line
+        .exchange_code(oauth2::AuthorizationCode::new(code))
+        .add_extra_param("accept", "application/json")
         .request_async(async_http_client)
         .await {
-            Ok(token) => { println!("Token is here {:?}", token); token },
+            Ok(token) => token,
             Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"error": format!("Failed to exchange auth code: {}", e)}))).into_response()
         };
 
