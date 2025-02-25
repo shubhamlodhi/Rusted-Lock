@@ -11,6 +11,7 @@ use axum::response::IntoResponse;
 use crate::handlers;
 use crate::middleware::token_validator::auth_middleware;
 use crate::db::PgPool;
+use crate::handlers::{google, github};
 
 pub async fn root() -> impl IntoResponse {
     let welcome_message = r#"
@@ -59,7 +60,11 @@ pub async fn create_routes(pool: PgPool) -> Router {
     let login_routes = Router::new()
         .route("/login", post(handlers::login::login))
         .route("/register", post(handlers::register::register))
-        .route("/forgot", post(handlers::forgot::forgot_password));
+        .route("/forgot", post(handlers::forgot::forgot_password))
+        .route("/auth/google", get(google::google_auth_url))
+        .route("/auth/google/callback", post(google::google_callback))
+        .route("/auth/github", get(github::github_auth_url))         // Add GitHub auth URL route
+        .route("/auth/github/callback", post(github::github_callback)); // Add GitHub callback route
 
     let protected_routes = Router::new()
         .route("/logout", post(handlers::logout::logout))
@@ -72,3 +77,4 @@ pub async fn create_routes(pool: PgPool) -> Router {
         .nest("/api", protected_routes)
         .with_state(pool)
 }
+

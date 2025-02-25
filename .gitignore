@@ -4,8 +4,8 @@
 Cargo.lock
 
 # Environment & Configuration
-.env*
-!.env.example
+.env
+!.env
 *.toml
 !Cargo.toml
 
